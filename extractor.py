@@ -31,8 +31,15 @@ def extract_text(pdf_bytes: bytes) -> tuple[str, list[list], str]:
     if len(digital_text.strip()) >= _MIN_DIGITAL_CHARS:
         return digital_text.strip(), tables, "digital"
 
-    ocr_text = _extract_ocr(pdf_bytes)
-    return ocr_text.strip(), tables, "ocr"
+    try:
+        ocr_text = _extract_ocr(pdf_bytes)
+        if ocr_text.strip():
+            return ocr_text.strip(), tables, "ocr"
+    except Exception:
+        pass
+
+    # Tesseract not available or OCR failed — return whatever digital text was extracted
+    return digital_text.strip(), tables, "digital"
 
 
 def _extract_digital(pdf_bytes: bytes) -> tuple[str, list[list]]:
