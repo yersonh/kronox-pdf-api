@@ -133,7 +133,10 @@ Analiza el documento adjunto (minuta de contrato) y devuelve ÚNICAMENTE un JSON
 Si no encuentras un campo deja la cadena vacía "". No inventes datos que no estén explícitamente en el documento."""
 
 
-def analyze_minuta(pdf_bytes: bytes) -> MinutaAnalysisResponse:
+_MIN_TEXT_FOR_MINUTA = 300  # chars mínimos para considerar el PDF como digital
+
+
+def analyze_minuta(pdf_bytes: bytes, digital_text: str = "") -> MinutaAnalysisResponse:
     api_key = os.getenv("GEMINI_API_KEY")
 
     if not api_key:
@@ -147,15 +150,21 @@ def analyze_minuta(pdf_bytes: bytes) -> MinutaAnalysisResponse:
     )
 
     try:
-        import base64
-        pdf_part = {
-            "inline_data": {
-                "mime_type": "application/pdf",
-                "data": base64.b64encode(pdf_bytes).decode("utf-8"),
+        if len(digital_text.strip()) >= _MIN_TEXT_FOR_MINUTA:
+            # PDF digital: envía el texto extraído, más rápido y barato
+            prompt = _MINUTA_PROMPT + f"\n\nTEXTO DEL CONTRATO:\n{digital_text[:_MAX_CONTENT_CHARS]}"
+            response = model.generate_content(prompt)
+        else:
+            # PDF escaneado: envía el PDF directamente como visión
+            import base64
+            pdf_part = {
+                "inline_data": {
+                    "mime_type": "application/pdf",
+                    "data": base64.b64encode(pdf_bytes).decode("utf-8"),
+                }
             }
-        }
+            response = model.generate_content([pdf_part, _MINUTA_PROMPT])
 
-        response = model.generate_content([pdf_part, _MINUTA_PROMPT])
         data = _parse_response(response.text)
 
         return MinutaAnalysisResponse(

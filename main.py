@@ -61,12 +61,14 @@ async def analyze_pdf(archivo: UploadFile = File(...)):
 async def analyze_minuta_pdf(archivo: UploadFile = File(...)):
     """
     Specialized endpoint for contract minutas.
-    Uses Gemini Vision directly with the PDF bytes — works for both
-    digital and scanned contracts without depending on OCR.
+    Uses text extraction for digital PDFs (fast) and Gemini Vision
+    as fallback for scanned/image-based PDFs.
     """
     pdf_bytes = await _read_pdf(archivo)
 
-    return analyze_minuta(pdf_bytes)
+    digital_text, _, _ = extract_text(pdf_bytes)
+
+    return analyze_minuta(pdf_bytes, digital_text)
 
 
 async def _read_pdf(archivo: UploadFile) -> bytes:
