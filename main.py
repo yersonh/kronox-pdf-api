@@ -4,9 +4,9 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from analyzer import analyze
+from analyzer import analyze, analyze_minuta
 from extractor import extract_text
-from models import AnalysisResponse, ExtractResponse
+from models import AnalysisResponse, ExtractResponse, MinutaAnalysisResponse
 
 load_dotenv()
 
@@ -55,6 +55,25 @@ async def analyze_pdf(archivo: UploadFile = File(...)):
         )
 
     return analyze(text, tables)
+
+
+@app.post("/analyze-minuta", response_model=MinutaAnalysisResponse)
+async def analyze_minuta_pdf(archivo: UploadFile = File(...)):
+    """
+    Specialized endpoint for contract minutas.
+    Extracts structured contract data: number, date, duration, value, contractor info.
+    """
+    pdf_bytes = await _read_pdf(archivo)
+
+    text, _, _ = extract_text(pdf_bytes)
+
+    if not text:
+        return MinutaAnalysisResponse(
+            success=False,
+            error="No se pudo extraer texto del PDF.",
+        )
+
+    return analyze_minuta(text)
 
 
 async def _read_pdf(archivo: UploadFile) -> bytes:

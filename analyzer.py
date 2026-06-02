@@ -9,7 +9,7 @@ import re
 
 import google.generativeai as genai
 
-from models import AnalysisResponse, TableItem
+from models import AnalysisResponse, MinutaAnalysisResponse, TableItem
 
 _MODEL = "gemini-2.5-flash"
 _MAX_CONTENT_CHARS = 30_000
@@ -114,6 +114,61 @@ def _format_tables(tables: list[list]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+_MINUTA_PROMPT = """\
+Eres un experto en contratos de prestación de servicios del sector público colombiano.
+
+Analiza el siguiente texto extraído de una minuta de contrato y devuelve ÚNICAMENTE un JSON válido:
+{{
+  "numero_contrato": "número o código del contrato, ej: '0475-2026' o '0475'",
+  "fecha_suscripcion": "fecha en que se suscribió o firmó el contrato, en texto, ej: '21 de enero de 2026'",
+  "duracion": "duración del contrato tal como aparece, ej: 'Seis (6) meses' o 'Doce (12) meses'",
+  "valor": "valor total del contrato con signo pesos y separadores de miles, ej: '$33.000.000'",
+  "contratista_nombre": "nombre completo del contratista persona natural",
+  "cedula": "número de cédula del contratista, solo dígitos",
+  "objeto": "objeto completo del contrato, texto completo sin recortar"
+}}
+
+Si no encuentras un campo deja la cadena vacía "". No inventes datos que no estén explícitamente en el texto.
+
+TEXTO DEL CONTRATO:
+{content}"""
+
+
+def analyze_minuta(text: str) -> MinutaAnalysisResponse:
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    if not api_key:
+        return MinutaAnalysisResponse(success=False, error="GEMINI_API_KEY no configurada.")
+
+    genai.configure(api_key=api_key)
+
+    content = text[:_MAX_CONTENT_CHARS]
+    prompt = _MINUTA_PROMPT.format(content=content)
+
+    model = genai.GenerativeModel(
+        _MODEL,
+        generation_config={"response_mime_type": "application/json"},
+    )
+
+    try:
+        response = model.generate_content(prompt)
+        data = _parse_response(response.text)
+
+        return MinutaAnalysisResponse(
+            success=True,
+            numero_contrato=data.get("numero_contrato", ""),
+            fecha_suscripcion=data.get("fecha_suscripcion", ""),
+            duracion=data.get("duracion", ""),
+            valor=data.get("valor", ""),
+            contratista_nombre=data.get("contratista_nombre", ""),
+            cedula=data.get("cedula", ""),
+            objeto=data.get("objeto", ""),
+        )
+
+    except Exception as e:
+        return MinutaAnalysisResponse(success=False, error=str(e))
 
 
 def _parse_response(text: str) -> dict:

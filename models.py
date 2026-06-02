@@ -6,6 +6,18 @@ class TableItem(BaseModel):
     rows: list[list] = []
 
 
+class MinutaAnalysisResponse(BaseModel):
+    success: bool
+    numero_contrato: str = ""
+    fecha_suscripcion: str = ""
+    duracion: str = ""
+    valor: str = ""
+    contratista_nombre: str = ""
+    cedula: str = ""
+    objeto: str = ""
+    error: str = ""
+
+
 class ExtractResponse(BaseModel):
     success: bool
     raw_text: str = ""
