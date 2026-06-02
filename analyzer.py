@@ -119,24 +119,21 @@ def _format_tables(tables: list[list]) -> str:
 _MINUTA_PROMPT = """\
 Eres un experto en contratos de prestación de servicios del sector público colombiano.
 
-Analiza el siguiente texto extraído de una minuta de contrato y devuelve ÚNICAMENTE un JSON válido:
-{{
-  "numero_contrato": "número o código del contrato, ej: '0475-2026' o '0475'",
+Analiza el documento adjunto (minuta de contrato) y devuelve ÚNICAMENTE un JSON válido:
+{
+  "numero_contrato": "número o código del contrato, ej: '0475' o '0475-2026'",
   "fecha_suscripcion": "fecha en que se suscribió o firmó el contrato, en texto, ej: '21 de enero de 2026'",
   "duracion": "duración del contrato tal como aparece, ej: 'Seis (6) meses' o 'Doce (12) meses'",
   "valor": "valor total del contrato con signo pesos y separadores de miles, ej: '$33.000.000'",
   "contratista_nombre": "nombre completo del contratista persona natural",
   "cedula": "número de cédula del contratista, solo dígitos",
   "objeto": "objeto completo del contrato, texto completo sin recortar"
-}}
+}
 
-Si no encuentras un campo deja la cadena vacía "". No inventes datos que no estén explícitamente en el texto.
-
-TEXTO DEL CONTRATO:
-{content}"""
+Si no encuentras un campo deja la cadena vacía "". No inventes datos que no estén explícitamente en el documento."""
 
 
-def analyze_minuta(text: str) -> MinutaAnalysisResponse:
+def analyze_minuta(pdf_bytes: bytes) -> MinutaAnalysisResponse:
     api_key = os.getenv("GEMINI_API_KEY")
 
     if not api_key:
@@ -144,16 +141,21 @@ def analyze_minuta(text: str) -> MinutaAnalysisResponse:
 
     genai.configure(api_key=api_key)
 
-    content = text[:_MAX_CONTENT_CHARS]
-    prompt = _MINUTA_PROMPT.format(content=content)
-
     model = genai.GenerativeModel(
         _MODEL,
         generation_config={"response_mime_type": "application/json"},
     )
 
     try:
-        response = model.generate_content(prompt)
+        import base64
+        pdf_part = {
+            "inline_data": {
+                "mime_type": "application/pdf",
+                "data": base64.b64encode(pdf_bytes).decode("utf-8"),
+            }
+        }
+
+        response = model.generate_content([pdf_part, _MINUTA_PROMPT])
         data = _parse_response(response.text)
 
         return MinutaAnalysisResponse(
