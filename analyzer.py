@@ -9,7 +9,7 @@ import re
 
 import google.generativeai as genai
 
-from models import AnalysisResponse, MinutaAnalysisResponse, TableItem
+from models import AnalysisResponse, MinutaAnalysisResponse, SupervisorAnalysisResponse, TableItem
 
 _MODEL = "gemini-2.5-flash"
 _MAX_CONTENT_CHARS = 30_000
@@ -180,6 +180,69 @@ def analyze_minuta(pdf_bytes: bytes, digital_text: str = "") -> MinutaAnalysisRe
 
     except Exception as e:
         return MinutaAnalysisResponse(success=False, error=str(e))
+
+
+_SUPERVISOR_PROMPT = """\
+Eres un experto en contratos del sector público colombiano.
+
+Analiza el documento adjunto (resolución de designación de supervisor de contrato) y devuelve ÚNICAMENTE un JSON válido:
+{
+  "supervisor_nombre": "nombre completo de la persona designada como supervisora del contrato (no el jefe que firma, sino el supervisor delegado)",
+  "supervisor_cedula": "número de cédula del supervisor, solo dígitos",
+  "fecha_acta_inicio": "fecha del acta de inicio del contrato en texto, ej: '24 de enero de 2026'",
+  "fecha_terminacion": "fecha de terminación del contrato en texto, ej: '23 de julio de 2026'",
+  "fecha_adicion_prorroga": "fecha de adición o prórroga No. 1 si existe, si no escribe 'N/A'",
+  "valor_adicion_prorroga": "valor y tiempo de adición o prórroga No. 1 si existe, si no escribe 'N/A'",
+  "periodo_informe": "periodo del informe tal como aparece, ej: '24 de enero de 2026 al 23 de febrero de 2026'",
+  "ciudad_fecha_presentacion": "ciudad y fecha de presentación del informe, ej: 'Villavicencio, 18 de marzo de 2026'"
+}
+
+Si no encuentras un campo deja la cadena vacía "". No inventes datos."""
+
+
+def analyze_supervisor(pdf_bytes: bytes, digital_text: str = "") -> SupervisorAnalysisResponse:
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    if not api_key:
+        return SupervisorAnalysisResponse(success=False, error="GEMINI_API_KEY no configurada.")
+
+    genai.configure(api_key=api_key)
+
+    model = genai.GenerativeModel(
+        _MODEL,
+        generation_config={"response_mime_type": "application/json"},
+    )
+
+    try:
+        if len(digital_text.strip()) >= _MIN_TEXT_FOR_MINUTA:
+            prompt = _SUPERVISOR_PROMPT + f"\n\nTEXTO DEL DOCUMENTO:\n{digital_text[:_MAX_CONTENT_CHARS]}"
+            response = model.generate_content(prompt)
+        else:
+            import base64
+            pdf_part = {
+                "inline_data": {
+                    "mime_type": "application/pdf",
+                    "data": base64.b64encode(pdf_bytes).decode("utf-8"),
+                }
+            }
+            response = model.generate_content([pdf_part, _SUPERVISOR_PROMPT])
+
+        data = _parse_response(response.text)
+
+        return SupervisorAnalysisResponse(
+            success=True,
+            supervisor_nombre=data.get("supervisor_nombre", ""),
+            supervisor_cedula=data.get("supervisor_cedula", ""),
+            fecha_acta_inicio=data.get("fecha_acta_inicio", ""),
+            fecha_terminacion=data.get("fecha_terminacion", ""),
+            fecha_adicion_prorroga=data.get("fecha_adicion_prorroga", ""),
+            valor_adicion_prorroga=data.get("valor_adicion_prorroga", ""),
+            periodo_informe=data.get("periodo_informe", ""),
+            ciudad_fecha_presentacion=data.get("ciudad_fecha_presentacion", ""),
+        )
+
+    except Exception as e:
+        return SupervisorAnalysisResponse(success=False, error=str(e))
 
 
 def _parse_response(text: str) -> dict:

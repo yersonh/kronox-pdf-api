@@ -4,9 +4,9 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from analyzer import analyze, analyze_minuta
+from analyzer import analyze, analyze_minuta, analyze_supervisor
 from extractor import extract_text
-from models import AnalysisResponse, ExtractResponse, MinutaAnalysisResponse
+from models import AnalysisResponse, ExtractResponse, MinutaAnalysisResponse, SupervisorAnalysisResponse
 
 load_dotenv()
 
@@ -69,6 +69,18 @@ async def analyze_minuta_pdf(archivo: UploadFile = File(...)):
     digital_text, _, _ = extract_text(pdf_bytes)
 
     return analyze_minuta(pdf_bytes, digital_text)
+
+
+@app.post("/analyze-supervisor", response_model=SupervisorAnalysisResponse)
+async def analyze_supervisor_pdf(archivo: UploadFile = File(...)):
+    """
+    Specialized endpoint for supervisor resolution documents.
+    Extracts: supervisor name/cedula, acta inicio date, termination date,
+    adicion/prorroga, report period, and city/date of presentation.
+    """
+    pdf_bytes = await _read_pdf(archivo)
+    digital_text, _, _ = extract_text(pdf_bytes)
+    return analyze_supervisor(pdf_bytes, digital_text)
 
 
 async def _read_pdf(archivo: UploadFile) -> bytes:
