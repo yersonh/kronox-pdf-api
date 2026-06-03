@@ -190,8 +190,7 @@ Analiza el documento adjunto (resolución de designación de supervisor de contr
   "supervisor_nombre": "nombre completo de la persona designada como supervisora del contrato (no el jefe que firma, sino el supervisor delegado al que se le asigna la función)",
   "supervisor_cedula": "número de cédula del supervisor delegado, solo dígitos",
   "fecha_adicion_prorroga": "fecha de adición o prórroga No. 1 si existe en el documento, si no escribe 'N/A'",
-  "valor_adicion_prorroga": "valor y tiempo de adición o prórroga No. 1 si existe, si no escribe 'N/A'",
-  "ciudad_fecha_presentacion": "ciudad y fecha de presentación del informe si aparece, ej: 'Villavicencio, 18 de marzo de 2026'"
+  "valor_adicion_prorroga": "valor y tiempo de adición o prórroga No. 1 si existe, si no escribe 'N/A'"
 }
 
 Si no encuentras un campo deja la cadena vacía "". No inventes datos."""
@@ -232,7 +231,6 @@ def analyze_supervisor(pdf_bytes: bytes, digital_text: str = "") -> SupervisorAn
             supervisor_cedula=data.get("supervisor_cedula", ""),
             fecha_adicion_prorroga=data.get("fecha_adicion_prorroga", ""),
             valor_adicion_prorroga=data.get("valor_adicion_prorroga", ""),
-            ciudad_fecha_presentacion=data.get("ciudad_fecha_presentacion", ""),
         )
 
     except Exception as e:

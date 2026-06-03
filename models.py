@@ -24,7 +24,6 @@ class SupervisorAnalysisResponse(BaseModel):
     supervisor_cedula: str = ""
     fecha_adicion_prorroga: str = ""
     valor_adicion_prorroga: str = ""
-    ciudad_fecha_presentacion: str = ""
     error: str = ""
 
 
