@@ -22,11 +22,8 @@ class SupervisorAnalysisResponse(BaseModel):
     success: bool
     supervisor_nombre: str = ""
     supervisor_cedula: str = ""
-    fecha_acta_inicio: str = ""
-    fecha_terminacion: str = ""
     fecha_adicion_prorroga: str = ""
     valor_adicion_prorroga: str = ""
-    periodo_informe: str = ""
     ciudad_fecha_presentacion: str = ""
     error: str = ""
 

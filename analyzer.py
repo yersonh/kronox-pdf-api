@@ -187,14 +187,11 @@ Eres un experto en contratos del sector público colombiano.
 
 Analiza el documento adjunto (resolución de designación de supervisor de contrato) y devuelve ÚNICAMENTE un JSON válido:
 {
-  "supervisor_nombre": "nombre completo de la persona designada como supervisora del contrato (no el jefe que firma, sino el supervisor delegado)",
-  "supervisor_cedula": "número de cédula del supervisor, solo dígitos",
-  "fecha_acta_inicio": "fecha del acta de inicio del contrato en texto, ej: '24 de enero de 2026'",
-  "fecha_terminacion": "fecha de terminación del contrato en texto, ej: '23 de julio de 2026'",
-  "fecha_adicion_prorroga": "fecha de adición o prórroga No. 1 si existe, si no escribe 'N/A'",
+  "supervisor_nombre": "nombre completo de la persona designada como supervisora del contrato (no el jefe que firma, sino el supervisor delegado al que se le asigna la función)",
+  "supervisor_cedula": "número de cédula del supervisor delegado, solo dígitos",
+  "fecha_adicion_prorroga": "fecha de adición o prórroga No. 1 si existe en el documento, si no escribe 'N/A'",
   "valor_adicion_prorroga": "valor y tiempo de adición o prórroga No. 1 si existe, si no escribe 'N/A'",
-  "periodo_informe": "periodo del informe tal como aparece, ej: '24 de enero de 2026 al 23 de febrero de 2026'",
-  "ciudad_fecha_presentacion": "ciudad y fecha de presentación del informe, ej: 'Villavicencio, 18 de marzo de 2026'"
+  "ciudad_fecha_presentacion": "ciudad y fecha de presentación del informe si aparece, ej: 'Villavicencio, 18 de marzo de 2026'"
 }
 
 Si no encuentras un campo deja la cadena vacía "". No inventes datos."""
@@ -233,11 +230,8 @@ def analyze_supervisor(pdf_bytes: bytes, digital_text: str = "") -> SupervisorAn
             success=True,
             supervisor_nombre=data.get("supervisor_nombre", ""),
             supervisor_cedula=data.get("supervisor_cedula", ""),
-            fecha_acta_inicio=data.get("fecha_acta_inicio", ""),
-            fecha_terminacion=data.get("fecha_terminacion", ""),
             fecha_adicion_prorroga=data.get("fecha_adicion_prorroga", ""),
             valor_adicion_prorroga=data.get("valor_adicion_prorroga", ""),
-            periodo_informe=data.get("periodo_informe", ""),
             ciudad_fecha_presentacion=data.get("ciudad_fecha_presentacion", ""),
         )
 
