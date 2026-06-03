@@ -4,9 +4,9 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from analyzer import analyze, analyze_minuta, analyze_supervisor
+from analyzer import analyze, analyze_minuta, analyze_planilla, analyze_supervisor
 from extractor import extract_text
-from models import AnalysisResponse, ExtractResponse, MinutaAnalysisResponse, SupervisorAnalysisResponse
+from models import AnalysisResponse, ExtractResponse, MinutaAnalysisResponse, PlanillaAnalysisResponse, SupervisorAnalysisResponse
 
 load_dotenv()
 
@@ -69,6 +69,14 @@ async def analyze_minuta_pdf(archivo: UploadFile = File(...)):
     digital_text, _, _ = extract_text(pdf_bytes)
 
     return analyze_minuta(pdf_bytes, digital_text)
+
+
+@app.post("/analyze-planilla", response_model=PlanillaAnalysisResponse)
+async def analyze_planilla_pdf(archivo: UploadFile = File(...)):
+    """Extrae datos de seguridad social de una planilla de pago."""
+    pdf_bytes = await _read_pdf(archivo)
+    digital_text, _, _ = extract_text(pdf_bytes)
+    return analyze_planilla(pdf_bytes, digital_text)
 
 
 @app.post("/analyze-supervisor", response_model=SupervisorAnalysisResponse)

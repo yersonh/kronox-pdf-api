@@ -9,7 +9,7 @@ import re
 
 import google.generativeai as genai
 
-from models import AnalysisResponse, MinutaAnalysisResponse, SupervisorAnalysisResponse, TableItem
+from models import AnalysisResponse, MinutaAnalysisResponse, PlanillaAnalysisResponse, SupervisorAnalysisResponse, TableItem
 
 _MODEL = "gemini-2.5-flash"
 _MAX_CONTENT_CHARS = 30_000
@@ -194,6 +194,62 @@ Analiza el documento adjunto (resolución de designación de supervisor de contr
 }
 
 Si no encuentras un campo deja la cadena vacía "". No inventes datos."""
+
+
+_PLANILLA_PROMPT = """\
+Eres un experto en seguridad social colombiana.
+
+Analiza el documento adjunto (planilla de pago de aportes a seguridad social) y devuelve ÚNICAMENTE un JSON válido:
+{
+  "planilla_numero": "número de planilla o referencia de pago",
+  "fondo_pension": "nombre del fondo de pensión o AFP",
+  "arl": "nombre de la ARL (Administradora de Riesgos Laborales)",
+  "eps": "nombre de la EPS (Empresa Prestadora de Salud)",
+  "ibc": "valor del Ingreso Base de Cotización con formato de moneda, ej: '$513.334'",
+  "valor_pension": "valor del aporte a pensión con formato de moneda",
+  "valor_salud": "valor del aporte a salud con formato de moneda",
+  "valor_arl": "valor del aporte a riesgos profesionales/ARL con formato de moneda",
+  "valor_total": "valor total pagado con formato de moneda",
+  "fecha_pago": "fecha en que se realizó el pago, ej: '18/03/2026'"
+}
+
+Si no encuentras un campo deja la cadena vacía "". No inventes datos."""
+
+
+def analyze_planilla(pdf_bytes: bytes, digital_text: str = "") -> PlanillaAnalysisResponse:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return PlanillaAnalysisResponse(success=False, error="GEMINI_API_KEY no configurada.")
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(_MODEL, generation_config={"response_mime_type": "application/json"})
+
+    try:
+        if len(digital_text.strip()) >= _MIN_TEXT_FOR_MINUTA:
+            response = model.generate_content(_PLANILLA_PROMPT + f"\n\nTEXTO:\n{digital_text[:_MAX_CONTENT_CHARS]}")
+        else:
+            import base64
+            response = model.generate_content([
+                {"inline_data": {"mime_type": "application/pdf", "data": base64.b64encode(pdf_bytes).decode()}},
+                _PLANILLA_PROMPT,
+            ])
+
+        data = _parse_response(response.text)
+        return PlanillaAnalysisResponse(
+            success=True,
+            planilla_numero=data.get("planilla_numero", ""),
+            fondo_pension=data.get("fondo_pension", ""),
+            arl=data.get("arl", ""),
+            eps=data.get("eps", ""),
+            ibc=data.get("ibc", ""),
+            valor_pension=data.get("valor_pension", ""),
+            valor_salud=data.get("valor_salud", ""),
+            valor_arl=data.get("valor_arl", ""),
+            valor_total=data.get("valor_total", ""),
+            fecha_pago=data.get("fecha_pago", ""),
+        )
+    except Exception as e:
+        return PlanillaAnalysisResponse(success=False, error=str(e))
 
 
 def analyze_supervisor(pdf_bytes: bytes, digital_text: str = "") -> SupervisorAnalysisResponse:

@@ -27,6 +27,21 @@ class SupervisorAnalysisResponse(BaseModel):
     error: str = ""
 
 
+class PlanillaAnalysisResponse(BaseModel):
+    success: bool
+    planilla_numero: str = ""
+    fondo_pension: str = ""
+    arl: str = ""
+    eps: str = ""
+    ibc: str = ""
+    valor_pension: str = ""
+    valor_salud: str = ""
+    valor_arl: str = ""
+    valor_total: str = ""
+    fecha_pago: str = ""
+    error: str = ""
+
+
 class ExtractResponse(BaseModel):
     success: bool
     raw_text: str = ""
