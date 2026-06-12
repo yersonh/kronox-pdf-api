@@ -1,8 +1,9 @@
 import os
+import secrets
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 
 from analyzer import analyze, analyze_minuta, analyze_planilla, analyze_supervisor
 from extractor import extract_text
@@ -12,6 +13,25 @@ load_dotenv()
 
 app = FastAPI(title="PDF Analyzer API", version="1.0.0")
 
+# Tamaño máximo de archivo aceptado (50 MB). Evita agotar memoria y limita el abuso.
+MAX_FILE_SIZE = 50 * 1024 * 1024
+
+
+def verificar_api_key(x_api_key: str = Header(None)):
+    """
+    Exige una clave compartida en el header X-API-Key.
+    Solo SAA-Agenda (que conoce la clave) puede llamar a estos endpoints,
+    evitando que cualquiera en internet consuma la cuota de Gemini.
+    """
+    esperado = os.getenv("API_KEY")
+
+    # Si no hay clave configurada en el servidor, se rechaza todo por seguridad.
+    if not esperado:
+        raise HTTPException(status_code=503, detail="Servicio no configurado.")
+
+    if not x_api_key or not secrets.compare_digest(x_api_key, esperado):
+        raise HTTPException(status_code=401, detail="No autorizado.")
+
 
 @app.get("/health")
 def health():
@@ -19,7 +39,7 @@ def health():
     return {"status": "ok"}
 
 
-@app.post("/extract", response_model=ExtractResponse)
+@app.post("/extract", response_model=ExtractResponse, dependencies=[Depends(verificar_api_key)])
 async def extract(archivo: UploadFile = File(...)):
     """
     Returns only the raw extracted text from the PDF.
@@ -38,7 +58,7 @@ async def extract(archivo: UploadFile = File(...)):
     return ExtractResponse(success=True, raw_text=text, extraction_method=method)
 
 
-@app.post("/analyze", response_model=AnalysisResponse)
+@app.post("/analyze", response_model=AnalysisResponse, dependencies=[Depends(verificar_api_key)])
 async def analyze_pdf(archivo: UploadFile = File(...)):
     """
     Main endpoint. Extracts text from the PDF and sends it to Gemini.
@@ -57,7 +77,7 @@ async def analyze_pdf(archivo: UploadFile = File(...)):
     return analyze(text, tables)
 
 
-@app.post("/analyze-minuta", response_model=MinutaAnalysisResponse)
+@app.post("/analyze-minuta", response_model=MinutaAnalysisResponse, dependencies=[Depends(verificar_api_key)])
 async def analyze_minuta_pdf(archivo: UploadFile = File(...)):
     """
     Specialized endpoint for contract minutas.
@@ -71,7 +91,7 @@ async def analyze_minuta_pdf(archivo: UploadFile = File(...)):
     return analyze_minuta(pdf_bytes, digital_text)
 
 
-@app.post("/analyze-planilla", response_model=PlanillaAnalysisResponse)
+@app.post("/analyze-planilla", response_model=PlanillaAnalysisResponse, dependencies=[Depends(verificar_api_key)])
 async def analyze_planilla_pdf(archivo: UploadFile = File(...)):
     """Extrae datos de seguridad social de una planilla de pago."""
     pdf_bytes = await _read_pdf(archivo)
@@ -79,7 +99,7 @@ async def analyze_planilla_pdf(archivo: UploadFile = File(...)):
     return analyze_planilla(pdf_bytes, digital_text)
 
 
-@app.post("/analyze-supervisor", response_model=SupervisorAnalysisResponse)
+@app.post("/analyze-supervisor", response_model=SupervisorAnalysisResponse, dependencies=[Depends(verificar_api_key)])
 async def analyze_supervisor_pdf(archivo: UploadFile = File(...)):
     """
     Specialized endpoint for supervisor resolution documents.
@@ -99,6 +119,9 @@ async def _read_pdf(archivo: UploadFile) -> bytes:
 
     if not content:
         raise HTTPException(status_code=400, detail="El archivo está vacío.")
+
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="El archivo supera el tamaño máximo de 50 MB.")
 
     return content
 
