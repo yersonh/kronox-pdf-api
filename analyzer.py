@@ -127,16 +127,22 @@ Analiza el documento adjunto (minuta de contrato) y devuelve ÚNICAMENTE un JSON
   "valor": "valor total del contrato con signo pesos y separadores de miles, ej: '$33.000.000'",
   "contratista_nombre": "nombre completo del contratista persona natural",
   "cedula": "número de cédula del contratista, solo dígitos",
-  "objeto": "objeto completo del contrato, texto completo sin recortar"
+  "objeto": "ver instrucciones especiales abajo"
 }
+
+INSTRUCCIONES ESPECIALES PARA EL CAMPO "objeto":
+Este campo requiere TRANSCRIPCIÓN LITERAL, no un resumen ni una paráfrasis.
+- Busca la sección del documento que dice "Objeto:" o "1) Objeto:" (o similar).
+- Copia TODO el texto que sigue, palabra por palabra, letra por letra, desde la primera palabra hasta el punto final de esa cláusula.
+- NO omitas palabras al inicio (como "Apoyar el desarrollo de...").
+- NO omitas palabras al final (como nombres de municipios o departamentos).
+- NO resumas ni acortes el texto bajo ningún motivo, sin importar qué tan largo sea.
+- Si el texto tiene saltos de línea en el original, únelos en un solo párrafo pero sin perder ninguna palabra.
 
 Si no encuentras un campo deja la cadena vacía "". No inventes datos que no estén explícitamente en el documento."""
 
 
-_MIN_TEXT_FOR_MINUTA = 300  # chars mínimos para considerar el PDF como digital
-
-
-def analyze_minuta(pdf_bytes: bytes, digital_text: str = "") -> MinutaAnalysisResponse:
+def analyze_minuta(pdf_bytes: bytes, text: str = "", method: str = "digital") -> MinutaAnalysisResponse:
     api_key = os.getenv("GEMINI_API_KEY")
 
     if not api_key:
@@ -150,12 +156,14 @@ def analyze_minuta(pdf_bytes: bytes, digital_text: str = "") -> MinutaAnalysisRe
     )
 
     try:
-        if len(digital_text.strip()) >= _MIN_TEXT_FOR_MINUTA:
+        if method == "digital" and text.strip():
             # PDF digital: envía el texto extraído, más rápido y barato
-            prompt = _MINUTA_PROMPT + f"\n\nTEXTO DEL CONTRATO:\n{digital_text[:_MAX_CONTENT_CHARS]}"
+            prompt = _MINUTA_PROMPT + f"\n\nTEXTO DEL CONTRATO:\n{text[:_MAX_CONTENT_CHARS]}"
             response = model.generate_content(prompt)
         else:
-            # PDF escaneado: envía el PDF directamente como visión
+            # PDF escaneado: el texto OCR de Tesseract puede perder palabras
+            # (mayúsculas sostenidas, párrafos justificados). Se envía el PDF
+            # directamente a Gemini Vision en vez de confiar en el OCR local.
             import base64
             pdf_part = {
                 "inline_data": {
@@ -216,7 +224,7 @@ Analiza el documento adjunto (planilla de pago de aportes a seguridad social) y 
 Si no encuentras un campo deja la cadena vacía "". No inventes datos."""
 
 
-def analyze_planilla(pdf_bytes: bytes, digital_text: str = "") -> PlanillaAnalysisResponse:
+def analyze_planilla(pdf_bytes: bytes, text: str = "", method: str = "digital") -> PlanillaAnalysisResponse:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return PlanillaAnalysisResponse(success=False, error="GEMINI_API_KEY no configurada.")
@@ -225,8 +233,8 @@ def analyze_planilla(pdf_bytes: bytes, digital_text: str = "") -> PlanillaAnalys
     model = genai.GenerativeModel(_MODEL, generation_config={"response_mime_type": "application/json"})
 
     try:
-        if len(digital_text.strip()) >= _MIN_TEXT_FOR_MINUTA:
-            response = model.generate_content(_PLANILLA_PROMPT + f"\n\nTEXTO:\n{digital_text[:_MAX_CONTENT_CHARS]}")
+        if method == "digital" and text.strip():
+            response = model.generate_content(_PLANILLA_PROMPT + f"\n\nTEXTO:\n{text[:_MAX_CONTENT_CHARS]}")
         else:
             import base64
             response = model.generate_content([
@@ -252,7 +260,7 @@ def analyze_planilla(pdf_bytes: bytes, digital_text: str = "") -> PlanillaAnalys
         return PlanillaAnalysisResponse(success=False, error=str(e))
 
 
-def analyze_supervisor(pdf_bytes: bytes, digital_text: str = "") -> SupervisorAnalysisResponse:
+def analyze_supervisor(pdf_bytes: bytes, text: str = "", method: str = "digital") -> SupervisorAnalysisResponse:
     api_key = os.getenv("GEMINI_API_KEY")
 
     if not api_key:
@@ -266,8 +274,8 @@ def analyze_supervisor(pdf_bytes: bytes, digital_text: str = "") -> SupervisorAn
     )
 
     try:
-        if len(digital_text.strip()) >= _MIN_TEXT_FOR_MINUTA:
-            prompt = _SUPERVISOR_PROMPT + f"\n\nTEXTO DEL DOCUMENTO:\n{digital_text[:_MAX_CONTENT_CHARS]}"
+        if method == "digital" and text.strip():
+            prompt = _SUPERVISOR_PROMPT + f"\n\nTEXTO DEL DOCUMENTO:\n{text[:_MAX_CONTENT_CHARS]}"
             response = model.generate_content(prompt)
         else:
             import base64

@@ -86,17 +86,17 @@ async def analyze_minuta_pdf(archivo: UploadFile = File(...)):
     """
     pdf_bytes = await _read_pdf(archivo)
 
-    digital_text, _, _ = extract_text(pdf_bytes)
+    text, _, method = extract_text(pdf_bytes)
 
-    return analyze_minuta(pdf_bytes, digital_text)
+    return analyze_minuta(pdf_bytes, text, method)
 
 
 @app.post("/analyze-planilla", response_model=PlanillaAnalysisResponse, dependencies=[Depends(verificar_api_key)])
 async def analyze_planilla_pdf(archivo: UploadFile = File(...)):
     """Extrae datos de seguridad social de una planilla de pago."""
     pdf_bytes = await _read_pdf(archivo)
-    digital_text, _, _ = extract_text(pdf_bytes)
-    return analyze_planilla(pdf_bytes, digital_text)
+    text, _, method = extract_text(pdf_bytes)
+    return analyze_planilla(pdf_bytes, text, method)
 
 
 @app.post("/analyze-supervisor", response_model=SupervisorAnalysisResponse, dependencies=[Depends(verificar_api_key)])
@@ -107,8 +107,8 @@ async def analyze_supervisor_pdf(archivo: UploadFile = File(...)):
     adicion/prorroga, report period, and city/date of presentation.
     """
     pdf_bytes = await _read_pdf(archivo)
-    digital_text, _, _ = extract_text(pdf_bytes)
-    return analyze_supervisor(pdf_bytes, digital_text)
+    text, _, method = extract_text(pdf_bytes)
+    return analyze_supervisor(pdf_bytes, text, method)
 
 
 async def _read_pdf(archivo: UploadFile) -> bytes:
