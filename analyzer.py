@@ -205,8 +205,7 @@ INSTRUCCIONES PARA EL RESUMEN:
 - Redacta en tercera persona, tono institucional y formal, en español.
 - No inventes información que no esté en el texto. Si el documento no es un acta de reunión, resume su contenido de la misma forma.
 
-TEXTO DEL DOCUMENTO:
-{content}"""
+Si no encuentras texto suficiente para un resumen, deja la cadena vacía "\""."""
 
 
 def analyze_acta(pdf_bytes: bytes, text: str = "", method: str = "digital") -> ActaResumenResponse:
@@ -224,7 +223,7 @@ def analyze_acta(pdf_bytes: bytes, text: str = "", method: str = "digital") -> A
 
     try:
         if method == "digital" and text.strip():
-            prompt = _ACTA_PROMPT.format(content=text[:_MAX_CONTENT_CHARS])
+            prompt = _ACTA_PROMPT + f"\n\nTEXTO DEL DOCUMENTO:\n{text[:_MAX_CONTENT_CHARS]}"
             response = model.generate_content(prompt)
         else:
             import base64
@@ -234,7 +233,7 @@ def analyze_acta(pdf_bytes: bytes, text: str = "", method: str = "digital") -> A
                     "data": base64.b64encode(pdf_bytes).decode("utf-8"),
                 }
             }
-            response = model.generate_content([pdf_part, _ACTA_PROMPT.format(content="(ver PDF adjunto)")])
+            response = model.generate_content([pdf_part, _ACTA_PROMPT])
 
         data = _parse_response(response.text)
         resumen = (data.get("resumen") or "").strip()
