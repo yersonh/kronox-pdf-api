@@ -27,6 +27,12 @@ class SupervisorAnalysisResponse(BaseModel):
     error: str = ""
 
 
+class ActaResumenResponse(BaseModel):
+    success: bool
+    resumen: str = ""
+    error: str = ""
+
+
 class PlanillaAnalysisResponse(BaseModel):
     success: bool
     planilla_numero: str = ""

@@ -9,7 +9,7 @@ import re
 
 import google.generativeai as genai
 
-from models import AnalysisResponse, MinutaAnalysisResponse, PlanillaAnalysisResponse, SupervisorAnalysisResponse, TableItem
+from models import ActaResumenResponse, AnalysisResponse, MinutaAnalysisResponse, PlanillaAnalysisResponse, SupervisorAnalysisResponse, TableItem
 
 _MODEL = "gemini-2.5-flash"
 _MAX_CONTENT_CHARS = 30_000
@@ -188,6 +188,64 @@ def analyze_minuta(pdf_bytes: bytes, text: str = "", method: str = "digital") ->
 
     except Exception as e:
         return MinutaAnalysisResponse(success=False, error=str(e))
+
+
+_ACTA_PROMPT = """\
+Eres un asistente experto en redacción de resúmenes ejecutivos para actas de reunión del sector público colombiano.
+
+Analiza el siguiente texto extraído de un acta de reunión y devuelve ÚNICAMENTE un JSON válido con esta estructura:
+{
+  "resumen": "resumen del acta en exactamente DOS párrafos"
+}
+
+INSTRUCCIONES PARA EL RESUMEN:
+- Debe tener EXACTAMENTE dos párrafos, separados por un salto de línea (\\n\\n).
+- Primer párrafo: propósito de la reunión, participantes principales y temas tratados.
+- Segundo párrafo: decisiones, acuerdos y compromisos adquiridos.
+- Redacta en tercera persona, tono institucional y formal, en español.
+- No inventes información que no esté en el texto. Si el documento no es un acta de reunión, resume su contenido de la misma forma.
+
+TEXTO DEL DOCUMENTO:
+{content}"""
+
+
+def analyze_acta(pdf_bytes: bytes, text: str = "", method: str = "digital") -> ActaResumenResponse:
+    api_key = os.getenv("GEMINI_API_KEY")
+
+    if not api_key:
+        return ActaResumenResponse(success=False, error="GEMINI_API_KEY no configurada.")
+
+    genai.configure(api_key=api_key)
+
+    model = genai.GenerativeModel(
+        _MODEL,
+        generation_config={"response_mime_type": "application/json"},
+    )
+
+    try:
+        if method == "digital" and text.strip():
+            prompt = _ACTA_PROMPT.format(content=text[:_MAX_CONTENT_CHARS])
+            response = model.generate_content(prompt)
+        else:
+            import base64
+            pdf_part = {
+                "inline_data": {
+                    "mime_type": "application/pdf",
+                    "data": base64.b64encode(pdf_bytes).decode("utf-8"),
+                }
+            }
+            response = model.generate_content([pdf_part, _ACTA_PROMPT.format(content="(ver PDF adjunto)")])
+
+        data = _parse_response(response.text)
+        resumen = (data.get("resumen") or "").strip()
+
+        if not resumen:
+            return ActaResumenResponse(success=False, error="No se pudo generar el resumen.")
+
+        return ActaResumenResponse(success=True, resumen=resumen)
+
+    except Exception as e:
+        return ActaResumenResponse(success=False, error=str(e))
 
 
 _SUPERVISOR_PROMPT = """\
